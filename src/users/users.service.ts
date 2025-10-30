@@ -55,11 +55,7 @@ export class UsersService {
     };
   }
 
-  async findAll(
-    query: Record<string, any>,
-    current?: number,
-    pageSize?: number,
-  ) {
+  async findAll(query: string, current?: number, pageSize?: number) {
     const { filter, sort } = aqp(query);
 
     if (filter.current) delete filter.current;

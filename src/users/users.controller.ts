@@ -22,7 +22,7 @@ export class UsersController {
 
   @Get()
   findAll(
-    @Query() query,
+    @Query() query: string,
     @Query('current') current: number,
     @Query('pageSize') pageSize: number,
   ) {
