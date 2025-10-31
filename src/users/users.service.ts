@@ -55,21 +55,27 @@ export class UsersService {
   }
 
   async findAll(_query: string, current?: number, pageSize?: number) {
-    if (current == null) current = 1;
-    if (pageSize == null) pageSize = 10;
+    const currentNum = current == null ? 1 : Number(current);
+    const pageSizeNum = pageSize == null ? 10 : Number(pageSize);
 
     const totalItems = await this.userModel.countDocuments({});
-    const totalPages = totalItems ? Math.ceil(totalItems / pageSize) : 0;
-    const skip = (current - 1) * pageSize;
+    const totalPages = totalItems ? Math.ceil(totalItems / pageSizeNum) : 0;
+    const skip = (currentNum - 1) * pageSizeNum;
 
     const results = await this.userModel
       .find()
       .skip(skip)
-      .limit(pageSize)
+      .limit(pageSizeNum)
       .select('-password')
       .exec();
 
-    return { totalItems, totalPages, currentPage: current, pageSize, results };
+    return {
+      totalItems,
+      totalPages,
+      currentPage: currentNum,
+      pageSize: pageSizeNum,
+      results,
+    };
   }
 
   findOne(id: number) {
