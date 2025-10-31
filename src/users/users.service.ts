@@ -4,7 +4,6 @@ import { InjectModel } from '@nestjs/mongoose';
 import { User } from './schemas/user.schema';
 import { Model } from 'mongoose';
 import { hashPasswordHelper } from '../helpers/util';
-import aqp from 'api-query-params';
 
 @Injectable()
 export class UsersService {
@@ -55,32 +54,22 @@ export class UsersService {
     };
   }
 
-  async findAll(query: string, current?: number, pageSize?: number) {
-    const { filter, sort } = aqp(query);
-
-    if (filter.current) delete filter.current;
-    if (filter.pageSize) delete filter.pageSize;
-
+  async findAll(_query: string, current?: number, pageSize?: number) {
     if (current == null) current = 1;
     if (pageSize == null) pageSize = 10;
 
-    const totalItems = await this.userModel.countDocuments(filter);
-    const totalPages = Math.ceil(totalItems / pageSize);
+    const totalItems = await this.userModel.countDocuments({});
+    const totalPages = totalItems ? Math.ceil(totalItems / pageSize) : 0;
     const skip = (current - 1) * pageSize;
 
     const results = await this.userModel
-      .find(filter)
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      .sort(sort as any)
+      .find()
       .skip(skip)
       .limit(pageSize)
       .select('-password')
       .exec();
 
-    return {
-      totalPages,
-      results,
-    };
+    return { totalItems, totalPages, currentPage: current, pageSize, results };
   }
 
   findOne(id: number) {
