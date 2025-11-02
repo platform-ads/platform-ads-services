@@ -26,16 +26,23 @@ import { MailerModule } from '@nestjs-modules/mailer';
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
         const isProduction = process.env.NODE_ENV === 'production';
+        const mailPort = configService.get<number>('MAIL_PORT') || 587;
+        const mailSecure = configService.get<string>('MAIL_SECURE');
+
+        // Tự động xác định secure dựa trên port nếu không được set
+        const secure =
+          mailSecure !== undefined ? mailSecure === 'true' : mailPort === 465;
 
         return {
           transport: {
             host: configService.get<string>('MAIL_HOST'),
-            port: configService.get<number>('MAIL_PORT') || 465,
-            secure: configService.get<boolean>('MAIL_SECURE') || false, // true for 465, false for other ports
+            port: mailPort,
+            secure: secure, // true for port 465, false for port 587/25
             auth: {
               user: configService.get<string>('MAIL_USER'),
               pass: configService.get<string>('MAIL_PASS'),
             },
+            // Chỉ ignore TLS trong development
             ...(isProduction ? {} : { ignoreTLS: true }),
           },
           defaults: {
