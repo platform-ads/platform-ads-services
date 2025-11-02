@@ -12,13 +12,7 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { successResponse } from 'src/helpers/response';
-import { UserDocument } from './schemas/user.schema';
 import { Roles } from 'src/decorators/metadata';
-
-interface RequestWithUser extends Request {
-  user: UserDocument;
-}
 
 @Controller('users')
 export class UsersController {
@@ -42,8 +36,8 @@ export class UsersController {
 
   @Get('profile')
   @Roles('admin', 'user')
-  getProfile(@Request() req: RequestWithUser) {
-    return successResponse(req.user, 'Profile retrieved successfully', 200);
+  getProfile() {
+    return this.usersService.getProfile();
   }
 
   @Get(':id')

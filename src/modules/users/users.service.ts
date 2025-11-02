@@ -59,6 +59,16 @@ export class UsersService {
     return successResponse(user, 'User created successfully', 201);
   }
 
+  async getProfile() {
+    const user = await this.userModel.findOne().select('-password');
+
+    if (!user) {
+      return errorResponse('User not found', 404);
+    }
+
+    return successResponse(user, 'Profile retrieved successfully', 200);
+  }
+
   async findAll(_query: string, current?: number, pageSize?: number) {
     const currentNum = current == null ? 1 : Number(current);
     const pageSizeNum = pageSize == null ? 10 : Number(pageSize);

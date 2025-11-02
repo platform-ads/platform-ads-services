@@ -8,6 +8,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { hashPasswordHelper } from '../../helpers/util';
 import { errorResponse, successResponse } from '../../helpers/response';
+import { ConfigService } from '@nestjs/config';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
@@ -15,7 +17,54 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     @InjectModel(User.name) private userModel: Model<User>,
+    private configService: ConfigService,
   ) {}
+
+  private parseExpirationToSeconds(expiration: string): number {
+    const timeValue = parseInt(expiration);
+    const timeUnit = expiration.slice(-1);
+
+    const multipliers: { [key: string]: number } = {
+      s: 1,
+      m: 60,
+      h: 3600,
+      d: 86400,
+    };
+
+    return timeValue * (multipliers[timeUnit] || 1);
+  }
+
+  async generateTokens(userId: string, email: string) {
+    const payload = {
+      sub: userId,
+      email: email,
+    };
+
+    const jwtRefreshSecret =
+      this.configService.get<string>('JWT_REFRESH_SECRET') || 'refresh-secret';
+    const jwtRefreshExpiresIn =
+      this.configService.get<string>('JWT_REFRESH_EXPIRES_IN') || '7d';
+
+    const accessToken = await this.jwtService.signAsync(payload);
+
+    const refreshToken = await this.jwtService.signAsync(payload, {
+      secret: jwtRefreshSecret,
+      expiresIn: this.parseExpirationToSeconds(jwtRefreshExpiresIn),
+    });
+
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    };
+  }
+
+  async updateRefreshToken(userId: string, refreshToken: string) {
+    const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+    await this.userModel.updateOne(
+      { _id: userId },
+      { refreshToken: hashedRefreshToken },
+    );
+  }
 
   async signIn(user: UserDocument) {
     await this.userModel.updateOne(
@@ -23,14 +72,11 @@ export class AuthService {
       { lastLoginAt: new Date() },
     );
 
-    const payload = {
-      sub: user?._id,
-      email: user?.email,
-    };
+    const tokens = await this.generateTokens(user._id.toString(), user.email);
 
-    const access_token = await this.jwtService.signAsync(payload);
+    await this.updateRefreshToken(user._id.toString(), tokens.refresh_token);
 
-    return successResponse({ access_token }, 'Sign in successful', 200);
+    return successResponse(tokens, 'Sign in successful', 200);
   }
 
   async signUp(registerDto: CreateAuthDto) {
@@ -104,9 +150,52 @@ export class AuthService {
 
     await this.userModel.updateOne(
       { _id: user._id },
-      { lastLogoutAt: new Date() },
+      { lastLogoutAt: new Date(), refreshToken: null },
     );
 
     return successResponse(null, 'Logout successful', 200);
+  }
+
+  async refreshTokens(refreshToken: string) {
+    try {
+      const jwtRefreshSecret =
+        this.configService.get<string>('JWT_REFRESH_SECRET') ||
+        'refresh-secret';
+
+      interface JwtPayload {
+        sub: string;
+        email: string;
+      }
+
+      const payload = await this.jwtService.verifyAsync<JwtPayload>(
+        refreshToken,
+        {
+          secret: jwtRefreshSecret,
+        },
+      );
+
+      const user = await this.usersService.findByEmail(payload.email);
+
+      if (!user || !user.refreshToken) {
+        return errorResponse('Invalid refresh token', 401);
+      }
+
+      const refreshTokenMatches = await bcrypt.compare(
+        refreshToken,
+        user.refreshToken,
+      );
+
+      if (!refreshTokenMatches) {
+        return errorResponse('Invalid refresh token', 401);
+      }
+
+      const tokens = await this.generateTokens(user._id.toString(), user.email);
+
+      await this.updateRefreshToken(user._id.toString(), tokens.refresh_token);
+
+      return successResponse(tokens, 'Tokens refreshed successfully', 200);
+    } catch {
+      return errorResponse('Invalid or expired refresh token', 401);
+    }
   }
 }
