@@ -45,18 +45,25 @@ export class AuthController {
 
   @Get('mail')
   @Public()
-  testMail() {
-    this.mailerService
-      .sendMail({
+  async testMail() {
+    try {
+      await this.mailerService.sendMail({
         to: 'ledaian22@gmail.com',
         from: 'noreply@nestjs.com',
         subject: 'Testing Nest MailerModule ✔',
         text: 'welcome',
         html: '<b>welcome</b>',
-      })
-      .then(() => {})
-      .catch(() => {});
-
-    return 'ok';
+      });
+      return successResponse(null, 'Email sent successfully', 200);
+    } catch (error) {
+      console.error('Email sending failed:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      return successResponse(
+        { error: errorMessage },
+        'Failed to send email',
+        500,
+      );
+    }
   }
 }

@@ -24,29 +24,35 @@ import { MailerModule } from '@nestjs-modules/mailer';
 
     MailerModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        transport: {
-          host: configService.get<string>('MAILDEV_INCOMING_HOST'),
-          port: configService.get<number>('MAILDEV_INCOMING_PORT'),
-          secure: true,
-          ignoreTLS: true,
-          auth: {
-            user: configService.get<string>('MAILDEV_INCOMING_USER'),
-            pass: configService.get<string>('MAILDEV_INCOMING_PASS'),
+      useFactory: (configService: ConfigService) => {
+        const isProduction = process.env.NODE_ENV === 'production';
+
+        return {
+          transport: {
+            host: configService.get<string>('MAIL_HOST'),
+            port: configService.get<number>('MAIL_PORT') || 465,
+            secure: configService.get<boolean>('MAIL_SECURE') || false, // true for 465, false for other ports
+            auth: {
+              user: configService.get<string>('MAIL_USER'),
+              pass: configService.get<string>('MAIL_PASS'),
+            },
+            ...(isProduction ? {} : { ignoreTLS: true }),
           },
-        },
-        defaults: {
-          from: '"No Reply" <no-reply@localhost>',
-        },
-        preview: true,
-        // template: {
-        //   dir: process.cwd() + '/template/',
-        //   adapter: new HandlebarsAdapter(),
-        //   options: {
-        //     strict: true,
-        //   },
-        // },
-      }),
+          defaults: {
+            from:
+              configService.get<string>('MAIL_FROM') ||
+              '"No Reply" <no-reply@localhost>',
+          },
+          preview: !isProduction,
+          // template: {
+          //   dir: process.cwd() + '/template/',
+          //   adapter: new HandlebarsAdapter(),
+          //   options: {
+          //     strict: true,
+          //   },
+          // },
+        };
+      },
       inject: [ConfigService],
     }),
     UsersModule,
