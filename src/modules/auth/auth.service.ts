@@ -1,8 +1,8 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
-import { comparePasswordHelper } from 'src/helpers/util';
 import { JwtService } from '@nestjs/jwt';
 import { CreateAuthDto } from './dto/create-auth.dto';
+import { User, UserDocument } from '../users/schemas/user.schema';
 
 @Injectable()
 export class AuthService {
@@ -11,31 +11,27 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  async signIn(createAuthDto: CreateAuthDto): Promise<any> {
+  async signIn(user: UserDocument) {
+    const payload = {
+      sub: user?._id,
+      email: user?.email,
+    };
+
+    return {
+      message: 'Sign in successful',
+      access_token: await this.jwtService.signAsync(payload),
+    };
+  }
+
+  async validateUser(createAuthDto: CreateAuthDto): Promise<User | null> {
     const { email, password } = createAuthDto;
 
     const user = await this.usersService.findByEmail(email);
 
-    if (!user) {
-      throw new UnauthorizedException('Cannot find user with given email');
+    if (!user || !password) {
+      return null;
     }
 
-    const isValidPassword = await comparePasswordHelper(
-      password,
-      user.password,
-    );
-
-    if (!isValidPassword) {
-      throw new UnauthorizedException('Invalid password');
-    }
-
-    const payload = {
-      sub: user?._id,
-      username: user?.email,
-    };
-
-    return {
-      access_token: await this.jwtService.signAsync(payload),
-    };
+    return user;
   }
 }
