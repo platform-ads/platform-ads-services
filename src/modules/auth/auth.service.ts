@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { CreateAuthDto } from './dto/create-auth.dto';
@@ -7,7 +7,7 @@ import { User, UserDocument } from '../users/schemas/user.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { hashPasswordHelper } from '../../helpers/util';
-import { successResponse } from '../../helpers/response';
+import { errorResponse, successResponse } from '../../helpers/response';
 
 @Injectable()
 export class AuthService {
@@ -18,6 +18,11 @@ export class AuthService {
   ) {}
 
   async signIn(user: UserDocument) {
+    await this.userModel.updateOne(
+      { _id: user._id },
+      { lastLoginAt: new Date() },
+    );
+
     const payload = {
       sub: user?._id,
       email: user?.email,
@@ -29,18 +34,18 @@ export class AuthService {
   }
 
   async signUp(registerDto: CreateAuthDto) {
-    const { email, password, phoneNumber } = registerDto;
+    const { email, password, phoneNumber, role, keySecret } = registerDto;
 
     const emailTaken = await this.usersService.isEmailTaken(email);
 
     if (emailTaken) {
-      throw new BadRequestException('Email is already taken');
+      return errorResponse('Email is already taken', 400);
     }
 
     const phoneTaken = await this.usersService.isPhoneNumberTaken(phoneNumber);
 
     if (phoneTaken) {
-      throw new BadRequestException('Phone number is already taken');
+      return errorResponse('Phone number is already taken', 400);
     }
 
     const username = email.split('@')[0];
@@ -51,7 +56,14 @@ export class AuthService {
     const avatarLink = '';
     const points = 0;
 
+    if (role === 'admin') {
+      if (keySecret !== process.env.ADMIN_KEY_SECRET) {
+        return errorResponse('Invalid key secret for admin registration', 403);
+      }
+    }
+
     const user = await this.userModel.create({
+      role: role || 'user',
       username,
       email,
       password: hashPassword,
@@ -81,5 +93,20 @@ export class AuthService {
     }
 
     return user;
+  }
+
+  async logOut(user: UserDocument) {
+    const existingUser = await this.usersService.findById(user._id.toString());
+
+    if (!existingUser) {
+      return errorResponse('User not found', 404);
+    }
+
+    await this.userModel.updateOne(
+      { _id: user._id },
+      { lastLogoutAt: new Date() },
+    );
+
+    return successResponse(null, 'Logout successful', 200);
   }
 }

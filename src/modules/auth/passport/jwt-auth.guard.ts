@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
-import { IS_PUBLIC_KEY } from '../../../decorators/metadata';
+import { ROLES_KEY } from '../../../decorators/metadata';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
@@ -14,15 +14,18 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
   }
 
   canActivate(context: ExecutionContext) {
-    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    // Kiểm tra xem có decorator @Roles() không
+    const requiredRoles = this.reflector.getAllAndOverride<string[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
-    if (isPublic) {
+    // Nếu không có @Roles() => public, không cần xác thực
+    if (!requiredRoles) {
       return true;
     }
 
+    // Nếu có @Roles() => yêu cầu xác thực JWT
     return super.canActivate(context);
   }
 

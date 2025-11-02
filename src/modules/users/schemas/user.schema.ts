@@ -39,6 +39,12 @@ export class User {
   updatedAt?: Date;
 
   @Prop()
+  lastLoginAt: Date;
+
+  @Prop()
+  lastLogoutAt: Date;
+
+  @Prop()
   codeId: string;
 
   @Prop()

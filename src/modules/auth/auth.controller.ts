@@ -9,7 +9,7 @@ import {
 import { AuthService } from './auth.service';
 import { LocalAuthGuard } from './passport/local-auth.guard';
 import { UserDocument } from '../users/schemas/user.schema';
-import { Public } from '../../decorators/metadata';
+import { Roles } from '../../decorators/metadata';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { successResponse } from '../../helpers/response';
 import { MailerService } from '@nestjs-modules/mailer';
@@ -26,25 +26,23 @@ export class AuthController {
   ) {}
 
   @Post('signin')
-  @Public()
   @UseGuards(LocalAuthGuard)
   signIn(@Request() req: RequestWithUser) {
     return this.authService.signIn(req.user);
   }
 
   @Post('signup')
-  @Public()
   signUp(@Body() registerDto: CreateAuthDto) {
     return this.authService.signUp(registerDto);
   }
 
-  @Get('profile')
-  getProfile(@Request() req: RequestWithUser) {
-    return successResponse(req.user, 'Profile retrieved successfully', 200);
+  @Post('logout')
+  @Roles('admin', 'user')
+  logOut(@Request() req: RequestWithUser) {
+    return this.authService.logOut(req.user);
   }
 
   @Get('mail')
-  @Public()
   async testMail() {
     try {
       await this.mailerService.sendMail({

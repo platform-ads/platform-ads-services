@@ -1,4 +1,4 @@
-import { IsNotEmpty } from 'class-validator';
+import { IsNotEmpty, IsOptional } from 'class-validator';
 
 export class CreateAuthDto {
   @IsNotEmpty()
@@ -9,4 +9,10 @@ export class CreateAuthDto {
 
   @IsNotEmpty()
   phoneNumber: string;
+
+  @IsOptional()
+  role?: string;
+
+  @IsOptional()
+  keySecret?: string;
 }

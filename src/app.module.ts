@@ -6,6 +6,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/passport/jwt-auth.guard';
+import { RolesGuard } from './modules/auth/passport/roles.guard';
 import { APP_GUARD } from '@nestjs/core';
 import { MailerModule } from '@nestjs-modules/mailer';
 // import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
@@ -64,6 +65,10 @@ import { MailerModule } from '@nestjs-modules/mailer';
     AuthModule,
   ],
   controllers: [AppController],
-  providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }, AppService],
+  providers: [
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: RolesGuard },
+    AppService,
+  ],
 })
 export class AppModule {}

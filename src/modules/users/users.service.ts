@@ -1,10 +1,14 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from './schemas/user.schema';
 import { Model } from 'mongoose';
 import { hashPasswordHelper } from '../../helpers/util';
-import { successResponse, paginatedResponse } from '../../helpers/response';
+import {
+  successResponse,
+  paginatedResponse,
+  errorResponse,
+} from '../../helpers/response';
 import { UpdateUserDto } from './dto/update-user.dto';
 import mongoose from 'mongoose';
 
@@ -29,11 +33,11 @@ export class UsersService {
     const phoneTaken = await this.isPhoneNumberTaken(phoneNumber);
 
     if (emailTaken) {
-      throw new BadRequestException('Email is already taken');
+      return errorResponse('Email is already taken', 400);
     }
 
     if (phoneTaken) {
-      throw new BadRequestException('Phone number is already taken');
+      return errorResponse('Phone number is already taken', 400);
     }
 
     const username = email.split('@')[0];
@@ -86,6 +90,10 @@ export class UsersService {
     return await this.userModel.findOne({ email });
   }
 
+  async findById(id: string) {
+    return await this.userModel.findById(id);
+  }
+
   findOne(id: number) {
     return successResponse(null, `This action returns a #${id} user`, 200);
   }
@@ -100,7 +108,7 @@ export class UsersService {
 
   async remove(_id: string) {
     if (!mongoose.isValidObjectId(_id)) {
-      throw new BadRequestException('Invalid user ID');
+      return errorResponse('Invalid user ID', 400);
     }
 
     await this.userModel.deleteOne({ _id });
