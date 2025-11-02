@@ -4,6 +4,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { User } from './schemas/user.schema';
 import { Model } from 'mongoose';
 import { hashPasswordHelper } from '../../helpers/util';
+import { successResponse, paginatedResponse } from '../../helpers/response';
 import { UpdateUserDto } from './dto/update-user.dto';
 import mongoose from 'mongoose';
 
@@ -26,11 +27,6 @@ export class UsersService {
 
     const emailTaken = await this.isEmailTaken(email);
     const phoneTaken = await this.isPhoneNumberTaken(phoneNumber);
-    const username = email.split('@')[0];
-    const hashPassword = await hashPasswordHelper(password);
-    const avatarUrl = `https://ui-avatars.com/api/?name=${username}&background=random&size=128`;
-    const avatarLink = '';
-    const points = 0;
 
     if (emailTaken) {
       throw new BadRequestException('Email is already taken');
@@ -39,6 +35,12 @@ export class UsersService {
     if (phoneTaken) {
       throw new BadRequestException('Phone number is already taken');
     }
+
+    const username = email.split('@')[0];
+    const hashPassword = await hashPasswordHelper(password);
+    const avatarUrl = `https://ui-avatars.com/api/?name=${username}&background=random&size=128`;
+    const avatarLink = '';
+    const points = 0;
 
     const user = await this.userModel.create({
       username,
@@ -50,10 +52,7 @@ export class UsersService {
       points,
     });
 
-    return {
-      message: 'User created successfully',
-      data: user,
-    };
+    return successResponse(user, 'User created successfully', 201);
   }
 
   async findAll(_query: string, current?: number, pageSize?: number) {
@@ -69,13 +68,18 @@ export class UsersService {
       .skip(skip)
       .limit(pageSizeNum)
       .select('-password');
-    return {
-      totalItems,
-      totalPages,
-      currentPage: currentNum,
-      pageSize: pageSizeNum,
+
+    return paginatedResponse(
       results,
-    };
+      {
+        currentPage: currentNum,
+        pageSize: pageSizeNum,
+        totalItems,
+        totalPages,
+      },
+      'Users retrieved successfully',
+      200,
+    );
   }
 
   async findByEmail(email: string) {
@@ -83,14 +87,15 @@ export class UsersService {
   }
 
   findOne(id: number) {
-    return `This action returns a #${id} user`;
+    return successResponse(null, `This action returns a #${id} user`, 200);
   }
 
   async update(updateUserDto: UpdateUserDto) {
-    return await this.userModel.updateOne(
+    const result = await this.userModel.updateOne(
       { _id: updateUserDto._id },
       updateUserDto,
     );
+    return successResponse(result, 'User updated successfully', 200);
   }
 
   async remove(_id: string) {
@@ -100,6 +105,6 @@ export class UsersService {
 
     await this.userModel.deleteOne({ _id });
 
-    return `This action removes a #${_id} user`;
+    return successResponse(null, `User #${_id} removed successfully`, 200);
   }
 }

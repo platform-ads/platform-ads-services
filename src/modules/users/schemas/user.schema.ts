@@ -37,6 +37,12 @@ export class User {
 
   @Prop({ default: Date.now })
   updatedAt?: Date;
+
+  @Prop()
+  codeId: string;
+
+  @Prop()
+  codeExpiration: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
