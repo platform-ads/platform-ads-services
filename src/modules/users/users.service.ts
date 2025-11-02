@@ -3,7 +3,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from './schemas/user.schema';
 import { Model } from 'mongoose';
-import { hashPasswordHelper } from '../helpers/util';
+import { hashPasswordHelper } from '../../helpers/util';
 import { UpdateUserDto } from './dto/update-user.dto';
 import mongoose from 'mongoose';
 
@@ -68,9 +68,7 @@ export class UsersService {
       .find()
       .skip(skip)
       .limit(pageSizeNum)
-      .select('-password')
-      .exec();
-
+      .select('-password');
     return {
       totalItems,
       totalPages,
@@ -78,6 +76,10 @@ export class UsersService {
       pageSize: pageSizeNum,
       results,
     };
+  }
+
+  async findByEmail(email: string) {
+    return await this.userModel.findOne({ email });
   }
 
   findOne(id: number) {
@@ -96,7 +98,7 @@ export class UsersService {
       throw new BadRequestException('Invalid user ID');
     }
 
-    await this.userModel.deleteOne({ _id }).exec();
+    await this.userModel.deleteOne({ _id });
 
     return `This action removes a #${_id} user`;
   }

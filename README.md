@@ -10,5 +10,5 @@ $ yarn run start:dev
 # production mode
 $ yarn run start:prod
 ```
-nest generate resource users --no-spec
+nest g resource users --no-spec
 https://www.npmjs.com/package/api-query-params
