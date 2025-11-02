@@ -29,7 +29,6 @@ import { MailerModule } from '@nestjs-modules/mailer';
         const mailPort = configService.get<number>('MAIL_PORT') || 587;
         const mailSecure = configService.get<string>('MAIL_SECURE');
 
-        // Tự động xác định secure dựa trên port nếu không được set
         const secure =
           mailSecure !== undefined ? mailSecure === 'true' : mailPort === 465;
 
@@ -37,12 +36,11 @@ import { MailerModule } from '@nestjs-modules/mailer';
           transport: {
             host: configService.get<string>('MAIL_HOST'),
             port: mailPort,
-            secure: secure, // true for port 465, false for port 587/25
+            secure: secure,
             auth: {
               user: configService.get<string>('MAIL_USER'),
               pass: configService.get<string>('MAIL_PASS'),
             },
-            // Chỉ ignore TLS trong development
             ...(isProduction ? {} : { ignoreTLS: true }),
           },
           defaults: {

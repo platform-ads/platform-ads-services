@@ -8,8 +8,6 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { hashPasswordHelper } from '../../helpers/util';
 import { successResponse } from '../../helpers/response';
-import { randomUUID } from 'crypto';
-import dayjs from 'dayjs';
 
 @Injectable()
 export class AuthService {
@@ -53,9 +51,6 @@ export class AuthService {
     const avatarLink = '';
     const points = 0;
 
-    const codeID = randomUUID();
-    const codeExpiration = dayjs().add(15, 'minute').toDate();
-
     const user = await this.userModel.create({
       username,
       email,
@@ -64,8 +59,6 @@ export class AuthService {
       avatarUrl,
       avatarLink,
       points,
-      codeId: codeID,
-      codeExpiration,
     });
 
     const {
