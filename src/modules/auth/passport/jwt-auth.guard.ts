@@ -29,9 +29,31 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     return super.canActivate(context);
   }
 
-  handleRequest(err: any, user: any): any {
-    if (err || !user) {
-      throw err || new UnauthorizedException('Access denied or token invalid');
+  handleRequest(err: any, user: any, info: any): any {
+    // Xử lý các lỗi JWT cụ thể
+    if (info && typeof info === 'object' && 'name' in info) {
+      const errorName = (info as { name: string }).name;
+      if (errorName === 'TokenExpiredError') {
+        throw new UnauthorizedException(
+          'Access token has expired. Please login again.',
+        );
+      }
+      if (errorName === 'JsonWebTokenError') {
+        throw new UnauthorizedException('Invalid access token.');
+      }
+      if (errorName === 'NotBeforeError') {
+        throw new UnauthorizedException('Access token is not yet valid.');
+      }
+    }
+
+    if (err) {
+      throw err;
+    }
+
+    if (!user) {
+      throw new UnauthorizedException(
+        'Authentication credentials not found. Please login.',
+      );
     }
 
     return user;
