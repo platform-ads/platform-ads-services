@@ -85,8 +85,104 @@ export class AuthService {
   async signUp(registerDto: CreateAuthDto) {
     const { email, phoneNumber, role, keySecret } = registerDto;
 
-    await this.usersService.isEmailTaken(email);
-    await this.usersService.isPhoneNumberTaken(phoneNumber);
+    // Check if email already exists
+    const existingUserByEmail = await this.userModel.findOne({ email });
+    if (existingUserByEmail) {
+      // If account exists but not verified
+      if (
+        !existingUserByEmail.isActive &&
+        existingUserByEmail.verificationToken
+      ) {
+        // Check if user is trying to register again within 120 seconds
+        const twoMinutesAgo = new Date(Date.now() - 120 * 1000);
+
+        if (
+          existingUserByEmail.lastVerificationEmailSent &&
+          existingUserByEmail.lastVerificationEmailSent > twoMinutesAgo
+        ) {
+          const timeLeftSeconds = Math.ceil(
+            (existingUserByEmail.lastVerificationEmailSent.getTime() +
+              120 * 1000 -
+              Date.now()) /
+              1000,
+          );
+          return errorResponse(
+            `Please wait ${timeLeftSeconds} seconds before requesting another verification email. Check your inbox (including spam folder) for the previous verification email.`,
+            429,
+          );
+        }
+
+        // If 120 seconds have passed, allow resending verification email
+        await this.userModel.updateOne(
+          { _id: existingUserByEmail._id },
+          {
+            lastVerificationEmailSent: new Date(),
+          },
+        );
+
+        // Resend verification email with existing data
+        const clientUrl =
+          this.configService.get<string>('CLIENT_URL') ||
+          'http://localhost:3000';
+        const verificationUrl = `${clientUrl}/auth/verify-email?token=${existingUserByEmail.verificationToken}`;
+
+        this.mailerService
+          .sendMail({
+            to: email,
+            subject: 'Verify Your Platform Ads Account 🔐',
+            template: 'verify-email',
+            context: {
+              username: existingUserByEmail.username,
+              email: existingUserByEmail.email,
+              role: existingUserByEmail.role || 'user',
+              verificationUrl,
+              expirationTime: '1 hour',
+              generatePassword: existingUserByEmail.plainPassword || '********',
+            },
+          })
+          .catch((error) => {
+            console.error('Failed to resend verification email:', error);
+          });
+
+        return successResponse(
+          {
+            email: existingUserByEmail.email,
+            message:
+              'A verification email has been resent. Please check your inbox.',
+          },
+          'Verification email resent successfully',
+          200,
+        );
+      } else {
+        // Account already exists and is active
+        return errorResponse(
+          'This email is already registered. Please use a different email or login to your existing account.',
+          400,
+        );
+      }
+    }
+
+    // Check if phone number already exists
+    const existingUserByPhone = await this.userModel.findOne({ phoneNumber });
+    if (existingUserByPhone) {
+      // If account exists but not verified, delete it and allow re-registration
+      if (
+        !existingUserByPhone.isActive &&
+        existingUserByPhone.verificationToken
+      ) {
+        // If this is a different user (different email), just delete the old phone record
+        if (existingUserByPhone.email !== email) {
+          await this.userModel.deleteOne({ _id: existingUserByPhone._id });
+        }
+        // If same user, already handled above in email check
+      } else {
+        // Account already exists and is active
+        return errorResponse(
+          'This phone number is already registered. Please use a different phone number or login to your existing account.',
+          400,
+        );
+      }
+    }
 
     const username = email.split('@')[0];
 
@@ -145,6 +241,7 @@ export class AuthService {
       verificationToken,
       verificationExpiration,
       plainPassword: generatePassword,
+      lastVerificationEmailSent: role === 'admin' ? null : new Date(),
     });
 
     const clientUrl =

@@ -54,6 +54,9 @@ export class User {
   verificationExpiration: Date;
 
   @Prop()
+  lastVerificationEmailSent: Date;
+
+  @Prop()
   plainPassword: string;
 
   @Prop({ default: Date.now })
