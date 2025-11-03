@@ -39,14 +39,29 @@ import { join } from 'path';
     MailerModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
+        const port = Number(configService.get<string>('MAIL_PORT') || 0);
+        const explicitSecure = configService.get<string>('MAIL_SECURE');
+        const secure = explicitSecure
+          ? explicitSecure === 'true'
+          : port === 465;
+
         return {
           transport: {
             host: configService.get<string>('MAIL_HOST'),
-            port: configService.get<number>('MAIL_PORT'),
-            secure: configService.get<string>('MAIL_SECURE') === 'true',
+            port,
+            secure,
+            pool: false,
+            requireTLS: !secure,
             auth: {
               user: configService.get<string>('MAIL_USER'),
               pass: configService.get<string>('MAIL_PASS'),
+            },
+            connectionTimeout: 10_000,
+            greetingTimeout: 10_000,
+            socketTimeout: 20_000,
+            tls: {
+              minVersion: 'TLSv1.2',
+              rejectUnauthorized: true,
             },
           },
           defaults: {
@@ -54,7 +69,7 @@ import { join } from 'path';
               configService.get<string>('MAIL_FROM') ||
               '"No Reply" <no-reply@localhost>',
           },
-          preview: true,
+          preview: process.env.NODE_ENV !== 'production',
           template: {
             dir: join(__dirname, '..', 'template'),
             adapter: new HandlebarsAdapter(),
