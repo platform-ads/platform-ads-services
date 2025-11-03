@@ -30,7 +30,7 @@ import { VideosModule } from './modules/videos/videos.module';
       connectionName: 'videosdb',
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
-        uri: configService.get<string>('MONGODB_VIDEOS_URI'),
+        uri: configService.get<string>('MONGODB_VIDEOS_URI_MONGODB_URI'),
       }),
       inject: [ConfigService],
     }),
