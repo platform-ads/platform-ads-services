@@ -39,31 +39,22 @@ import { join } from 'path';
     MailerModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
-        const isProduction = process.env.NODE_ENV === 'production';
-        const mailPort = configService.get<number>('MAIL_PORT') || 587;
-        const mailSecure = configService.get<string>('MAIL_SECURE');
-
-        const secure =
-          mailSecure !== undefined ? mailSecure === 'true' : mailPort === 465;
-
         return {
           transport: {
             host: configService.get<string>('MAIL_HOST'),
-            port: mailPort,
-            secure: secure,
+            port: configService.get<number>('MAIL_PORT'),
+            secure: configService.get<string>('MAIL_SECURE') === 'true',
             auth: {
               user: configService.get<string>('MAIL_USER'),
               pass: configService.get<string>('MAIL_PASS'),
             },
-            requireTLS: true,
-            ...(isProduction ? {} : { ignoreTLS: true }),
           },
           defaults: {
             from:
               configService.get<string>('MAIL_FROM') ||
               '"No Reply" <no-reply@localhost>',
           },
-          preview: !isProduction,
+          preview: true,
           template: {
             dir: join(__dirname, '..', 'template'),
             adapter: new HandlebarsAdapter(),

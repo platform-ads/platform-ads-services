@@ -10,9 +10,9 @@ import { hashPasswordHelper } from '../../helpers/util';
 import { errorResponse, successResponse } from '../../helpers/response';
 import { ConfigService } from '@nestjs/config';
 import { MailerService } from '@nestjs-modules/mailer';
-import { sendEmailAsync } from '../../helpers/email';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { sendEmailAsync } from 'src/helpers/email';
 
 @Injectable()
 export class AuthService {
@@ -129,7 +129,7 @@ export class AuthService {
 
         sendEmailAsync(this.mailerService, {
           to: email,
-          subject: 'Verify Your Platform Ads Account 🔐',
+          subject: 'Verify Your Platform Ads Account ',
           template: 'verify-email',
           context: {
             username: existingUserByEmail.username,
@@ -276,7 +276,7 @@ export class AuthService {
 
       sendEmailAsync(this.mailerService, {
         to: email,
-        subject: 'Verify Your Platform Ads Account 🔐',
+        subject: 'Verify Your Platform Ads Account ',
         template: 'verify-email',
         context: {
           username,
