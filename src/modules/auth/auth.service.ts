@@ -9,10 +9,9 @@ import { Model } from 'mongoose';
 import { hashPasswordHelper } from '../../helpers/util';
 import { errorResponse, successResponse } from '../../helpers/response';
 import { ConfigService } from '@nestjs/config';
-import { MailerService } from '@nestjs-modules/mailer';
+import { MailService } from '../../lib/mail.service';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import { sendEmail } from '../../helpers/email';
 
 @Injectable()
 export class AuthService {
@@ -21,7 +20,7 @@ export class AuthService {
     private jwtService: JwtService,
     @InjectModel(User.name) private userModel: Model<User>,
     private configService: ConfigService,
-    private mailerService: MailerService,
+    private mailService: MailService,
   ) {}
 
   private parseExpirationToSeconds(expiration: string): number {
@@ -127,7 +126,7 @@ export class AuthService {
           'http://localhost:3000';
         const verificationUrl = `${clientUrl}/auth/verify-email?token=${existingUserByEmail.verificationToken}`;
 
-        await sendEmail(this.mailerService, {
+        await this.mailService.sendEmail({
           to: email,
           subject: 'Verify Your Platform Ads Account ',
           template: 'verify-email',
@@ -247,7 +246,7 @@ export class AuthService {
     // Send welcome email for admin
     if (role === 'admin') {
       // send welcome email to admin and clear plain password afterwards
-      await sendEmail(this.mailerService, {
+      await this.mailService.sendEmail({
         to: email,
         subject: 'Welcome Admin to Platform Ads! 🎉',
         template: 'welcome',
@@ -274,7 +273,7 @@ export class AuthService {
     } else {
       const verificationUrl = `${clientUrl}/auth/verify-email?token=${verificationToken}`;
 
-      await sendEmail(this.mailerService, {
+      await this.mailService.sendEmail({
         to: email,
         subject: 'Verify Your Platform Ads Account ',
         template: 'verify-email',
@@ -421,7 +420,7 @@ export class AuthService {
       this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
 
     // send welcome email and include the plain password that was stored at registration
-    await sendEmail(this.mailerService, {
+    await this.mailService.sendEmail({
       to: user.email,
       subject: 'Welcome to Platform Ads! 🎉',
       template: 'welcome',

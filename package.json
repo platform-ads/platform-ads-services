@@ -5,13 +5,6 @@
   "author": "ledaian22@gmail.com",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
-  "resolutions": {
-    "ejs": "3.1.10",
-    "pug": "3.0.3",
-    "mjml": "4.15.3",
-    "liquidjs": "10.24.0",
-    "preview-email": "3.1.0"
-  },
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -27,9 +20,6 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
-    "@css-inline/css-inline": "^0.18.0",
-    "@css-inline/css-inline-linux-x64-gnu": "^0.18.0",
-    "@nestjs-modules/mailer": "^2.0.2",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
@@ -48,9 +38,7 @@
     "cookie-parser": "^1.4.7",
     "dayjs": "^1.11.19",
     "exact": "^1.0.1",
-    "handlebars": "^4.7.8",
     "mongoose": "^8.19.2",
-    "nodemailer": "^7.0.10",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "passport-local": "^1.0.0",
@@ -64,13 +52,9 @@
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.0.1",
     "@types/cookie-parser": "^1.4.10",
-    "@types/ejs": "^3.1.5",
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
-    "@types/mjml": "^4.7.4",
     "@types/node": "^22.10.7",
-    "@types/nodemailer": "^7.0.3",
-    "@types/pug": "^2.0.10",
     "@types/supertest": "^6.0.2",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",

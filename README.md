@@ -1,3 +1,4 @@
+````markdown
 ## Compile and run the project
 
 ```bash
@@ -13,32 +14,78 @@ $ yarn run start:prod
 nest g resource users --no-spec
 https://www.npmjs.com/package/api-query-params
 
-## Email configuration (SMTP vs Resend)
+## Email Service Setup
 
-This service supports two ways to send email:
+### Quick Setup (5 steps)
 
-- SMTP via `@nestjs-modules/mailer` (default)
-- Resend API (recommended on Vercel serverless)
+**1. Configure Laravel Mail Service** (`platform-ads-mail-services/.env`):
 
-### Environment variables
+```env
+MAIL_MAILER=smtp
+MAIL_HOST="smtp.gmail.com"
+MAIL_PORT=587
+MAIL_USERNAME="your-email@gmail.com"
+MAIL_PASSWORD="your-app-password"          # Get from https://myaccount.google.com/apppasswords
+MAIL_FROM_ADDRESS="your-email@gmail.com"   # Email only, no name
+MAIL_FROM_NAME="Platform Ads"
+QUEUE_CONNECTION=sync                       # Use 'sync' for dev, 'database' for prod
+```
 
-- Common
-	- `MAIL_FROM` — e.g. `Platform Ads <noreply@platformads.com>`
-	- `CLIENT_URL` — used in email templates for links
+**2. Start Laravel server:**
 
-- SMTP (default)
-	- `MAIL_PROVIDER` (optional): `smtp`
-	- `MAIL_HOST` — e.g. `smtp.gmail.com`
-	- `MAIL_PORT` — `465` (TLS) or `587` (STARTTLS)
-	- `MAIL_SECURE` — `true` for 465, `false` for 587
-	- `MAIL_USER` — SMTP username
-	- `MAIL_PASS` — SMTP password/app password
+```bash
+cd platform-ads-mail-services
+php artisan serve  # http://localhost:8000
+```
 
-- Resend (recommended on Vercel)
-	- `MAIL_PROVIDER` = `resend`
-	- `RESEND_API_KEY` — your Resend API key
+**3. Configure NestJS** (`platform-ads-services/.env`):
 
-Notes:
+```env
+LARAVEL_MAIL_API_URL=http://localhost:8000/api/mail/send
+CLIENT_URL=http://localhost:3000
+```
 
-- On Vercel, direct SMTP can fail with errors like "Greeting never received" or "Unexpected socket close" due to provider/network restrictions. Using the Resend API avoids long‑lived TCP sockets and is more reliable in serverless environments.
-- SMTP transport is hardened with timeouts and STARTTLS when appropriate. Ensure `MAIL_PORT`/`MAIL_SECURE` match your provider.
+**4. Use in your code:**
+
+```typescript
+import { MailService } from '../../lib/mail.service';
+
+constructor(private mailService: MailService) {}
+
+await this.mailService.sendEmail({
+  to: 'user@example.com',
+  subject: 'Welcome!',
+  template: 'welcome',  // or 'verify-email'
+  context: {
+    username: 'John',
+    email: 'user@example.com',
+    loginUrl: 'http://localhost:3000/login',
+    // ... other template variables
+  }
+});
+```
+
+**5. Test it:**
+
+```bash
+curl http://localhost:3000/auth/mail
+```
+
+### Available Templates
+
+- `welcome` - Welcome email after registration
+- `verify-email` - Email verification with token
+
+### Production (Optional)
+
+Use queue for better performance:
+
+```env
+# Laravel .env
+QUEUE_CONNECTION=database
+```
+
+```bash
+php artisan queue:table && php artisan migrate
+php artisan queue:work
+```

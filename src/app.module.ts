@@ -8,10 +8,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { JwtAuthGuard } from './modules/auth/passport/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/passport/roles.guard';
 import { APP_GUARD } from '@nestjs/core';
-import { MailerModule } from '@nestjs-modules/mailer';
-import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { VideosModule } from './modules/videos/videos.module';
-import { join } from 'path';
 
 @Module({
   imports: [
@@ -36,44 +33,6 @@ import { join } from 'path';
       inject: [ConfigService],
     }),
 
-    MailerModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => {
-        const port = Number(configService.get<string>('MAIL_PORT') || 0);
-        const explicitSecure = configService.get<string>('MAIL_SECURE');
-        const secure = explicitSecure
-          ? explicitSecure === 'true'
-          : port === 465;
-
-        return {
-          transport: {
-            host: configService.get<string>('MAIL_HOST'),
-            port,
-            secure,
-            pool: false,
-            requireTLS: !secure,
-            auth: {
-              user: configService.get<string>('MAIL_USER'),
-              pass: configService.get<string>('MAIL_PASS'),
-            },
-          },
-          defaults: {
-            from:
-              configService.get<string>('MAIL_FROM') ||
-              '"No Reply" <no-reply@localhost>',
-          },
-          preview: process.env.NODE_ENV !== 'production',
-          template: {
-            dir: join(__dirname, '..', 'template'),
-            adapter: new HandlebarsAdapter(),
-            options: {
-              strict: true,
-            },
-          },
-        };
-      },
-      inject: [ConfigService],
-    }),
     UsersModule,
     AuthModule,
     VideosModule,

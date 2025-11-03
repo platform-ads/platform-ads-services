@@ -16,9 +16,8 @@ import { UserDocument } from '../users/schemas/user.schema';
 import { Roles } from '../../decorators/metadata';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { successResponse, errorResponse } from '../../helpers/response';
-import { MailerService } from '@nestjs-modules/mailer';
+import { MailService } from '../../lib/mail.service';
 import { ConfigService } from '@nestjs/config';
-import { sendEmail } from '../../helpers/email';
 
 interface RequestWithUser extends Request {
   user: UserDocument;
@@ -28,7 +27,7 @@ interface RequestWithUser extends Request {
 export class AuthController {
   constructor(
     private readonly authService: AuthService,
-    private readonly mailerService: MailerService,
+    private readonly mailService: MailService,
     private readonly configService: ConfigService,
   ) {}
 
@@ -161,7 +160,7 @@ export class AuthController {
   @Get('mail')
   async testMail() {
     try {
-      await sendEmail(this.mailerService, {
+      await this.mailService.sendEmail({
         to: 'ledaian22@gmail.com',
         subject: 'Testing Email Provider ✔',
         template: 'welcome',
