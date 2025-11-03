@@ -56,13 +56,6 @@ import { join } from 'path';
               user: configService.get<string>('MAIL_USER'),
               pass: configService.get<string>('MAIL_PASS'),
             },
-            connectionTimeout: 10_000,
-            greetingTimeout: 10_000,
-            socketTimeout: 20_000,
-            tls: {
-              minVersion: 'TLSv1.2',
-              rejectUnauthorized: true,
-            },
           },
           defaults: {
             from:
