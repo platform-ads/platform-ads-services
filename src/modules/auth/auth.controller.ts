@@ -18,6 +18,7 @@ import { CreateAuthDto } from './dto/create-auth.dto';
 import { successResponse, errorResponse } from '../../helpers/response';
 import { MailerService } from '@nestjs-modules/mailer';
 import { ConfigService } from '@nestjs/config';
+import { sendEmail } from '../../helpers/email';
 
 interface RequestWithUser extends Request {
   user: UserDocument;
@@ -160,12 +161,19 @@ export class AuthController {
   @Get('mail')
   async testMail() {
     try {
-      await this.mailerService.sendMail({
+      await sendEmail(this.mailerService, {
         to: 'ledaian22@gmail.com',
-        from: 'noreply@nestjs.com',
-        subject: 'Testing Nest MailerModule ✔',
-        text: 'welcome',
-        html: '<b>welcome</b>',
+        subject: 'Testing Email Provider ✔',
+        template: 'welcome',
+        context: {
+          username: 'tester',
+          email: 'tester@example.com',
+          phoneNumber: '0000000000',
+          generatePassword: '********',
+          role: 'user',
+          loginUrl:
+            (process.env.CLIENT_URL || 'http://localhost:3000') + '/login',
+        },
       });
       return successResponse(null, 'Email sent successfully', 200);
     } catch (error) {
