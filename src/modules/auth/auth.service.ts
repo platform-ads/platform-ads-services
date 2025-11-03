@@ -12,7 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { MailerService } from '@nestjs-modules/mailer';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import { sendEmailAsync } from '../../helpers/email';
+import { sendEmail } from '../../helpers/email';
 
 @Injectable()
 export class AuthService {
@@ -127,7 +127,7 @@ export class AuthService {
           'http://localhost:3000';
         const verificationUrl = `${clientUrl}/auth/verify-email?token=${existingUserByEmail.verificationToken}`;
 
-        sendEmailAsync(this.mailerService, {
+        await sendEmail(this.mailerService, {
           to: email,
           subject: 'Verify Your Platform Ads Account ',
           template: 'verify-email',
@@ -247,7 +247,7 @@ export class AuthService {
     // Send welcome email for admin
     if (role === 'admin') {
       // send welcome email to admin and clear plain password afterwards
-      sendEmailAsync(this.mailerService, {
+      await sendEmail(this.mailerService, {
         to: email,
         subject: 'Welcome Admin to Platform Ads! 🎉',
         template: 'welcome',
@@ -274,7 +274,7 @@ export class AuthService {
     } else {
       const verificationUrl = `${clientUrl}/auth/verify-email?token=${verificationToken}`;
 
-      sendEmailAsync(this.mailerService, {
+      await sendEmail(this.mailerService, {
         to: email,
         subject: 'Verify Your Platform Ads Account ',
         template: 'verify-email',
@@ -421,7 +421,7 @@ export class AuthService {
       this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
 
     // send welcome email and include the plain password that was stored at registration
-    sendEmailAsync(this.mailerService, {
+    await sendEmail(this.mailerService, {
       to: user.email,
       subject: 'Welcome to Platform Ads! 🎉',
       template: 'welcome',

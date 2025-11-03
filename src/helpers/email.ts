@@ -27,3 +27,19 @@ export const sendEmailAsync = (
       });
   });
 };
+
+/**
+ * Send email and await completion before continuing
+ * Use this when you want to block the HTTP response until the email is sent.
+ */
+export const sendEmail = async (
+  mailerService: MailerService,
+  options: {
+    to: string;
+    subject: string;
+    template: string;
+    context: Record<string, any>;
+  },
+): Promise<void> => {
+  await mailerService.sendMail(options);
+};
