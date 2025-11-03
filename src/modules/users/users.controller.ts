@@ -11,7 +11,7 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { Roles } from 'src/decorators/metadata';
+import { Roles } from '../../decorators/metadata';
 
 @Controller('users')
 export class UsersController {

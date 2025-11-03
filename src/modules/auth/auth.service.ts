@@ -12,7 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { MailerService } from '@nestjs-modules/mailer';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
-import { sendEmailAsync } from 'src/helpers/email';
+import { sendEmailAsync } from '../../helpers/email';
 
 @Injectable()
 export class AuthService {
