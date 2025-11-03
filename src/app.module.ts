@@ -11,6 +11,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { VideosModule } from './modules/videos/videos.module';
+import { join } from 'path';
 
 @Module({
   imports: [
@@ -63,7 +64,7 @@ import { VideosModule } from './modules/videos/videos.module';
           },
           preview: !isProduction,
           template: {
-            dir: process.cwd() + '/template/',
+            dir: join(__dirname, '..', 'template'),
             adapter: new HandlebarsAdapter(),
             options: {
               strict: true,
