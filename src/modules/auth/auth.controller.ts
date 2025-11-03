@@ -158,9 +158,9 @@ export class AuthController {
   }
 
   @Get('mail')
-  async testMail() {
+  testMail() {
     try {
-      await this.mailService.sendEmail({
+      this.mailService.sendEmailAsync({
         to: 'ledaian22@gmail.com',
         subject: 'Testing Email Provider ✔',
         template: 'welcome',
@@ -174,7 +174,11 @@ export class AuthController {
             (process.env.CLIENT_URL || 'http://localhost:3000') + '/login',
         },
       });
-      return successResponse(null, 'Email sent successfully', 200);
+      return successResponse(
+        null,
+        'Email request dispatched successfully',
+        200,
+      );
     } catch (error) {
       console.error('Email sending failed:', error);
       const errorMessage =

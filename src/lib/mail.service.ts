@@ -25,10 +25,21 @@ export class MailService {
    * Send email asynchronously via Laravel API
    * This does not wait for Laravel to process the email
    */
-  async sendEmailAsync(options: EmailOptions): Promise<void> {
-    // Fire and forget - don't await the response
-    this.sendEmail(options).catch((error) => {
-      console.error(`Failed to send email to ${options.to}:`, error.message);
+  sendEmailAsync(options: EmailOptions): void {
+    // Fire and forget - don't wait for response at all
+    void fetch(this.laravelMailApiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(options),
+    });
+
+    // Log immediately without waiting
+    console.log('Email request dispatched to Laravel (fire-and-forget):', {
+      to: options.to,
+      template: options.template,
     });
   }
 
