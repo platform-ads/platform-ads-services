@@ -55,6 +55,14 @@ import { join } from 'path';
               user: configService.get<string>('MAIL_USER'),
               pass: configService.get<string>('MAIL_PASS'),
             },
+            // Timeout settings for production to avoid connection issues
+            connectionTimeout: 10000, // 10 seconds
+            greetingTimeout: 10000, // 10 seconds
+            socketTimeout: 20000, // 20 seconds
+            // Pool settings to reuse connections
+            pool: true,
+            maxConnections: 5,
+            maxMessages: 10,
             ...(isProduction ? {} : { ignoreTLS: true }),
           },
           defaults: {

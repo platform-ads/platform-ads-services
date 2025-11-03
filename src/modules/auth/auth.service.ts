@@ -10,6 +10,7 @@ import { hashPasswordHelper } from '../../helpers/util';
 import { errorResponse, successResponse } from '../../helpers/response';
 import { ConfigService } from '@nestjs/config';
 import { MailerService } from '@nestjs-modules/mailer';
+import { sendEmailAsync } from '../../helpers/email';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 
@@ -126,23 +127,19 @@ export class AuthService {
           'http://localhost:3000';
         const verificationUrl = `${clientUrl}/auth/verify-email?token=${existingUserByEmail.verificationToken}`;
 
-        this.mailerService
-          .sendMail({
-            to: email,
-            subject: 'Verify Your Platform Ads Account 🔐',
-            template: 'verify-email',
-            context: {
-              username: existingUserByEmail.username,
-              email: existingUserByEmail.email,
-              role: existingUserByEmail.role || 'user',
-              verificationUrl,
-              expirationTime: '1 hour',
-              generatePassword: existingUserByEmail.plainPassword || '********',
-            },
-          })
-          .catch((error) => {
-            console.error('Failed to resend verification email:', error);
-          });
+        sendEmailAsync(this.mailerService, {
+          to: email,
+          subject: 'Verify Your Platform Ads Account 🔐',
+          template: 'verify-email',
+          context: {
+            username: existingUserByEmail.username,
+            email: existingUserByEmail.email,
+            role: existingUserByEmail.role || 'user',
+            verificationUrl,
+            expirationTime: '1 hour',
+            generatePassword: existingUserByEmail.plainPassword || '********',
+          },
+        });
 
         return successResponse(
           {
@@ -250,53 +247,46 @@ export class AuthService {
     // Send welcome email for admin
     if (role === 'admin') {
       // send welcome email to admin and clear plain password afterwards
-      this.mailerService
-        .sendMail({
-          to: email,
-          subject: 'Welcome Admin to Platform Ads! 🎉',
-          template: 'welcome',
-          context: {
-            username,
-            email,
-            phoneNumber,
-            generatePassword,
-            role: role || 'user',
-            loginUrl: `${clientUrl}/login`,
-          },
-        })
-        .then(() => {
-          // clear plainPassword after sending
-          this.userModel
-            .updateOne({ _id: user._id }, { plainPassword: null })
-            .catch((err) =>
-              console.error('Failed to clear plain password for admin:', err),
-            );
-        })
-        .catch((error) => {
-          console.error('Failed to send welcome email to admin:', error);
-        });
+      sendEmailAsync(this.mailerService, {
+        to: email,
+        subject: 'Welcome Admin to Platform Ads! 🎉',
+        template: 'welcome',
+        context: {
+          username,
+          email,
+          phoneNumber,
+          generatePassword,
+          role: role || 'user',
+          loginUrl: `${clientUrl}/login`,
+        },
+      });
+
+      // Clear plain password after a short delay
+      setTimeout(() => {
+        this.userModel
+          .updateOne({ _id: user._id }, { plainPassword: null })
+          .catch((err) =>
+            console.error('Failed to clear plain password for admin:', err),
+          );
+      }, 1000);
 
       // Send verification email for regular users
     } else {
       const verificationUrl = `${clientUrl}/auth/verify-email?token=${verificationToken}`;
 
-      this.mailerService
-        .sendMail({
-          to: email,
-          subject: 'Verify Your Platform Ads Account 🔐',
-          template: 'verify-email',
-          context: {
-            username,
-            email,
-            role: role || 'user',
-            verificationUrl,
-            expirationTime: '1 hour',
-            generatePassword, // Send password in verification email
-          },
-        })
-        .catch((error) => {
-          console.error('Failed to send verification email:', error);
-        });
+      sendEmailAsync(this.mailerService, {
+        to: email,
+        subject: 'Verify Your Platform Ads Account 🔐',
+        template: 'verify-email',
+        context: {
+          username,
+          email,
+          role: role || 'user',
+          verificationUrl,
+          expirationTime: '1 hour',
+          generatePassword, // Send password in verification email
+        },
+      });
     }
 
     const response = {
@@ -431,33 +421,28 @@ export class AuthService {
       this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
 
     // send welcome email and include the plain password that was stored at registration
-    this.mailerService
-      .sendMail({
-        to: user.email,
-        subject: 'Welcome to Platform Ads! 🎉',
-        template: 'welcome',
-        context: {
-          username: user.username,
-          email: user.email,
-          phoneNumber: user.phoneNumber,
-          generatePassword: user.plainPassword || '********',
-          role: user.role || 'user',
-          loginUrl: `${clientUrl}/login`,
-        },
-      })
-      .then(() => {
-        this.userModel
-          .updateOne({ _id: user._id }, { plainPassword: null })
-          .catch((err) =>
-            console.error('Failed to clear plain password after welcome:', err),
-          );
-      })
-      .catch((error) => {
-        console.error(
-          'Failed to send welcome email after verification:',
-          error,
+    sendEmailAsync(this.mailerService, {
+      to: user.email,
+      subject: 'Welcome to Platform Ads! 🎉',
+      template: 'welcome',
+      context: {
+        username: user.username,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        generatePassword: user.plainPassword || '********',
+        role: user.role || 'user',
+        loginUrl: `${clientUrl}/login`,
+      },
+    });
+
+    // Clear plain password after a short delay
+    setTimeout(() => {
+      this.userModel
+        .updateOne({ _id: user._id }, { plainPassword: null })
+        .catch((err) =>
+          console.error('Failed to clear plain password after welcome:', err),
         );
-      });
+    }, 1000);
 
     return successResponse(
       {
