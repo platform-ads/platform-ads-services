@@ -9,16 +9,28 @@ import { JwtAuthGuard } from './modules/auth/passport/jwt-auth.guard';
 import { RolesGuard } from './modules/auth/passport/roles.guard';
 import { APP_GUARD } from '@nestjs/core';
 import { MailerModule } from '@nestjs-modules/mailer';
-// import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
+import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
+import { VideosModule } from './modules/videos/videos.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
 
+    // Main database connection for users, auth, etc.
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
         uri: configService.get<string>('MONGODB_URI'),
+      }),
+      inject: [ConfigService],
+    }),
+
+    // Separate database connection for videos
+    MongooseModule.forRootAsync({
+      connectionName: 'videosdb',
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        uri: configService.get<string>('MONGODB_VIDEOS_URI'),
       }),
       inject: [ConfigService],
     }),
@@ -50,19 +62,20 @@ import { MailerModule } from '@nestjs-modules/mailer';
               '"No Reply" <no-reply@localhost>',
           },
           preview: !isProduction,
-          // template: {
-          //   dir: process.cwd() + '/template/',
-          //   adapter: new HandlebarsAdapter(),
-          //   options: {
-          //     strict: true,
-          //   },
-          // },
+          template: {
+            dir: process.cwd() + '/template/',
+            adapter: new HandlebarsAdapter(),
+            options: {
+              strict: true,
+            },
+          },
         };
       },
       inject: [ConfigService],
     }),
     UsersModule,
     AuthModule,
+    VideosModule,
   ],
   controllers: [AppController],
   providers: [

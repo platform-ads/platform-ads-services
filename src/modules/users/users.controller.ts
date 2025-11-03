@@ -4,7 +4,6 @@ import {
   Post,
   Body,
   Param,
-  Delete,
   Query,
   Patch,
   Request,
@@ -46,15 +45,12 @@ export class UsersController {
     return this.usersService.findOne(+id);
   }
 
-  @Patch()
-  @Roles('admin')
-  update(@Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(updateUserDto);
-  }
-
-  @Delete(':id')
-  @Roles('admin')
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(id);
+  @Patch('me')
+  @Roles('user')
+  updateProfile(
+    @Request() req: { user: { _id: string } },
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    return this.usersService.updateProfile(String(req.user._id), updateUserDto);
   }
 }

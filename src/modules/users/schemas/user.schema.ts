@@ -17,7 +17,7 @@ export class User {
   @Prop({ unique: true })
   phoneNumber: string;
 
-  @Prop({ default: true })
+  @Prop({ default: false })
   isActive: boolean;
 
   @Prop({ enum: ['admin', 'user'], required: true, default: 'user' })
@@ -31,12 +31,6 @@ export class User {
 
   @Prop({ default: 100 })
   points: number;
-
-  @Prop({ default: Date.now })
-  createdAt?: Date;
-
-  @Prop({ default: Date.now })
-  updatedAt?: Date;
 
   @Prop()
   lastLoginAt: Date;
@@ -52,6 +46,21 @@ export class User {
 
   @Prop()
   refreshToken: string;
+
+  @Prop()
+  verificationToken: string;
+
+  @Prop()
+  verificationExpiration: Date;
+
+  @Prop()
+  plainPassword: string;
+
+  @Prop({ default: Date.now })
+  createdAt?: Date;
+
+  @Prop({ default: Date.now })
+  updatedAt?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

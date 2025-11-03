@@ -3,14 +3,13 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { InjectModel } from '@nestjs/mongoose';
 import { User } from './schemas/user.schema';
 import { Model } from 'mongoose';
-import { hashPasswordHelper } from '../../helpers/util';
+import { hashPasswordHelper, comparePasswordHelper } from '../../helpers/util';
 import {
   successResponse,
   paginatedResponse,
   errorResponse,
 } from '../../helpers/response';
 import { UpdateUserDto } from './dto/update-user.dto';
-import mongoose from 'mongoose';
 
 @Injectable()
 export class UsersService {
@@ -18,27 +17,94 @@ export class UsersService {
 
   isEmailTaken = async (email: string | undefined) => {
     const user = await this.userModel.exists({ email });
-    return !!user;
+
+    if (!user) {
+      return errorResponse('User not found', 404);
+    }
+
+    return user;
   };
 
   isPhoneNumberTaken = async (phoneNumber: string | undefined) => {
     const user = await this.userModel.exists({ phoneNumber });
-    return !!user;
+
+    if (!user) {
+      return errorResponse('User not found', 404);
+    }
+
+    return user;
   };
+
+  async updateProfile(userId: string, updateUserDto: UpdateUserDto) {
+    const { email, phoneNumber, oldPassword, newPassword, avatarLink } =
+      updateUserDto;
+
+    const user = await this.userModel.findById(userId);
+    if (!user) {
+      return errorResponse('User not found', 404);
+    }
+
+    if (email && email !== user.email) {
+      const emailExists = await this.userModel.findOne({ email });
+      if (emailExists) {
+        return errorResponse('Email already in use', 400);
+      }
+    }
+
+    if (phoneNumber && phoneNumber !== user.phoneNumber) {
+      const phoneExists = await this.userModel.findOne({ phoneNumber });
+      if (phoneExists) {
+        return errorResponse('Phone number already in use', 400);
+      }
+    }
+
+    if (newPassword) {
+      if (!oldPassword) {
+        return errorResponse(
+          'Old password is required to set new password',
+          400,
+        );
+      }
+
+      const isPasswordValid = await comparePasswordHelper(
+        oldPassword,
+        user.password,
+      );
+      if (!isPasswordValid) {
+        return errorResponse('Old password is incorrect', 400);
+      }
+
+      const hashedPassword = await hashPasswordHelper(newPassword);
+      user.password = hashedPassword;
+    }
+
+    if (email) user.email = email;
+    if (phoneNumber) user.phoneNumber = phoneNumber;
+    if (avatarLink) user.avatarLink = avatarLink;
+
+    user.updatedAt = new Date();
+
+    await user.save();
+
+    const response = {
+      _id: user._id,
+      username: user.username,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      isActive: user.isActive,
+      avatarUrl: user.avatarUrl || '',
+      avatarLink: user.avatarLink || '',
+      points: user.points,
+    };
+
+    return successResponse(response, 'Profile updated successfully', 200);
+  }
 
   async create(createUserDto: CreateUserDto) {
     const { email, password, phoneNumber } = createUserDto;
 
-    const emailTaken = await this.isEmailTaken(email);
-    const phoneTaken = await this.isPhoneNumberTaken(phoneNumber);
-
-    if (emailTaken) {
-      return errorResponse('Email is already taken', 400);
-    }
-
-    if (phoneTaken) {
-      return errorResponse('Phone number is already taken', 400);
-    }
+    await this.isEmailTaken(email);
+    await this.isPhoneNumberTaken(phoneNumber);
 
     const username = email.split('@')[0];
     const hashPassword = await hashPasswordHelper(password);
@@ -100,29 +166,21 @@ export class UsersService {
     return await this.userModel.findOne({ email });
   }
 
+  async findByUsername(username: string) {
+    return await this.userModel.findOne({ username });
+  }
+
+  async findByEmailOrUsername(emailOrUsername: string) {
+    return await this.userModel.findOne({
+      $or: [{ email: emailOrUsername }, { username: emailOrUsername }],
+    });
+  }
+
   async findById(id: string) {
     return await this.userModel.findById(id);
   }
 
   findOne(id: number) {
     return successResponse(null, `This action returns a #${id} user`, 200);
-  }
-
-  async update(updateUserDto: UpdateUserDto) {
-    const result = await this.userModel.updateOne(
-      { _id: updateUserDto._id },
-      updateUserDto,
-    );
-    return successResponse(result, 'User updated successfully', 200);
-  }
-
-  async remove(_id: string) {
-    if (!mongoose.isValidObjectId(_id)) {
-      return errorResponse('Invalid user ID', 400);
-    }
-
-    await this.userModel.deleteOne({ _id });
-
-    return successResponse(null, `User #${_id} removed successfully`, 200);
   }
 }

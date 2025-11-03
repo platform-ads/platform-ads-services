@@ -7,9 +7,6 @@ import {
 } from 'class-validator';
 
 export class UpdateUserDto {
-  @IsNotEmpty()
-  _id: string;
-
   @IsOptional()
   @IsEmail()
   email: string;
@@ -19,7 +16,14 @@ export class UpdateUserDto {
   @Matches(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/, {
     message: 'Password must contain at least one letter and one number',
   })
-  password: string;
+  oldPassword: string;
+
+  @IsNotEmpty()
+  @MinLength(8)
+  @Matches(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{8,}$/, {
+    message: 'Password must contain at least one letter and one number',
+  })
+  newPassword: string;
 
   @IsOptional()
   @Matches(/^(?:\+84|0)[35789]\d{8}$/, {
@@ -29,7 +33,4 @@ export class UpdateUserDto {
 
   @IsOptional()
   avatarLink?: string;
-
-  @IsOptional()
-  avatarUrl?: string;
 }

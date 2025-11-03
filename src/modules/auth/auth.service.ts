@@ -9,7 +9,9 @@ import { Model } from 'mongoose';
 import { hashPasswordHelper } from '../../helpers/util';
 import { errorResponse, successResponse } from '../../helpers/response';
 import { ConfigService } from '@nestjs/config';
+import { MailerService } from '@nestjs-modules/mailer';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -18,6 +20,7 @@ export class AuthService {
     private jwtService: JwtService,
     @InjectModel(User.name) private userModel: Model<User>,
     private configService: ConfigService,
+    private mailerService: MailerService,
   ) {}
 
   private parseExpirationToSeconds(expiration: string): number {
@@ -80,27 +83,38 @@ export class AuthService {
   }
 
   async signUp(registerDto: CreateAuthDto) {
-    const { email, password, phoneNumber, role, keySecret } = registerDto;
+    const { email, phoneNumber, role, keySecret } = registerDto;
 
-    const emailTaken = await this.usersService.isEmailTaken(email);
-
-    if (emailTaken) {
-      return errorResponse('Email is already taken', 400);
-    }
-
-    const phoneTaken = await this.usersService.isPhoneNumberTaken(phoneNumber);
-
-    if (phoneTaken) {
-      return errorResponse('Phone number is already taken', 400);
-    }
+    await this.usersService.isEmailTaken(email);
+    await this.usersService.isPhoneNumberTaken(phoneNumber);
 
     const username = email.split('@')[0];
 
-    const hashPassword = await hashPasswordHelper(password);
+    const passwordRegex =
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
+    const generateRandomPassword = () => {
+      const length = 12;
+      const chars =
+        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@$!%*?&';
+      let newPassword = '';
+      do {
+        newPassword = Array.from(
+          { length },
+          () => chars[Math.floor(Math.random() * chars.length)],
+        ).join('');
+      } while (!passwordRegex.test(newPassword));
+      return newPassword;
+    };
+
+    const generatePassword = generateRandomPassword();
+
+    const hashPassword = await hashPasswordHelper(generatePassword);
 
     const avatarUrl = `https://ui-avatars.com/api/?name=${username}&background=random&size=128`;
     const avatarLink = '';
-    const points = 0;
+    const points = role === 'admin' ? 999999999 : 0;
+    const isActiveUser = role === 'admin' ? true : false;
 
     if (role === 'admin') {
       if (keySecret !== process.env.ADMIN_KEY_SECRET) {
@@ -108,7 +122,18 @@ export class AuthService {
       }
     }
 
+    // Generate verification token for regular users (not admin)
+    let verificationToken: string | null = null;
+    let verificationExpiration: Date | null = null;
+
+    if (role !== 'admin') {
+      verificationToken = crypto.randomBytes(32).toString('hex');
+      // Token expires after 1 hour
+      verificationExpiration = new Date(Date.now() + 60 * 60 * 1000);
+    }
+
     const user = await this.userModel.create({
+      isActive: isActiveUser,
       role: role || 'user',
       username,
       email,
@@ -117,22 +142,86 @@ export class AuthService {
       avatarUrl,
       avatarLink,
       points,
+      verificationToken,
+      verificationExpiration,
+      plainPassword: generatePassword,
     });
 
-    const {
-      password: _password,
-      codeId: _codeId,
-      codeExpiration: _codeExpiration,
-      ...userObject
-    } = user.toObject();
+    const clientUrl =
+      this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
 
-    return successResponse(userObject, 'User registered successfully', 201);
+    // Send welcome email for admin
+    if (role === 'admin') {
+      // send welcome email to admin and clear plain password afterwards
+      this.mailerService
+        .sendMail({
+          to: email,
+          subject: 'Welcome Admin to Platform Ads! 🎉',
+          template: 'welcome',
+          context: {
+            username,
+            email,
+            phoneNumber,
+            generatePassword,
+            role: role || 'user',
+            loginUrl: `${clientUrl}/login`,
+          },
+        })
+        .then(() => {
+          // clear plainPassword after sending
+          this.userModel
+            .updateOne({ _id: user._id }, { plainPassword: null })
+            .catch((err) =>
+              console.error('Failed to clear plain password for admin:', err),
+            );
+        })
+        .catch((error) => {
+          console.error('Failed to send welcome email to admin:', error);
+        });
+
+      // Send verification email for regular users
+    } else {
+      const verificationUrl = `${clientUrl}/auth/verify-email?token=${verificationToken}`;
+
+      this.mailerService
+        .sendMail({
+          to: email,
+          subject: 'Verify Your Platform Ads Account 🔐',
+          template: 'verify-email',
+          context: {
+            username,
+            email,
+            role: role || 'user',
+            verificationUrl,
+            expirationTime: '1 hour',
+            generatePassword, // Send password in verification email
+          },
+        })
+        .catch((error) => {
+          console.error('Failed to send verification email:', error);
+        });
+    }
+
+    const response = {
+      userId: user._id,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      avatarUrl: user.avatarUrl,
+      avatarLink: user.avatarLink,
+      points: user.points,
+      isActive: user.isActive,
+      message: isActiveUser
+        ? 'Admin account has been created and activated successfully. Please check your email for the password.'
+        : 'Registration successful! Please check your email to verify your account.',
+    };
+
+    return successResponse(response, 'User registered successfully', 201);
   }
 
   async validateUser(loginDto: LoginAuthDto): Promise<User | null> {
-    const { email, password } = loginDto;
+    const { emailOrUsername, password } = loginDto;
 
-    const user = await this.usersService.findByEmail(email);
+    const user = await this.usersService.findByEmailOrUsername(emailOrUsername);
 
     if (!user || !password) {
       return null;
@@ -197,5 +286,89 @@ export class AuthService {
     } catch {
       return errorResponse('Invalid or expired refresh token', 401);
     }
+  }
+
+  async verifyEmail(token: string) {
+    const user = await this.userModel.findOne({
+      verificationToken: token,
+    });
+
+    if (!user) {
+      return errorResponse(
+        'Verification token is invalid or has already been used',
+        400,
+      );
+    }
+
+    // Check if token has expired - if yes, delete the account
+    if (
+      user.verificationExpiration &&
+      user.verificationExpiration < new Date()
+    ) {
+      // Delete the expired unverified account
+      await this.userModel.deleteOne({ _id: user._id });
+
+      return errorResponse(
+        'Verification token has expired and the account has been deleted. Please register again',
+        400,
+      );
+    }
+
+    // Check if account is already active
+    if (user.isActive) {
+      return errorResponse('This account has already been activated', 400);
+    }
+
+    // Activate the account
+    await this.userModel.updateOne(
+      { _id: user._id },
+      {
+        isActive: true,
+        verificationToken: null,
+        verificationExpiration: null,
+      },
+    );
+
+    // Send welcome email after successful verification
+    const clientUrl =
+      this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
+
+    // send welcome email and include the plain password that was stored at registration
+    this.mailerService
+      .sendMail({
+        to: user.email,
+        subject: 'Welcome to Platform Ads! 🎉',
+        template: 'welcome',
+        context: {
+          username: user.username,
+          email: user.email,
+          phoneNumber: user.phoneNumber,
+          generatePassword: user.plainPassword || '********',
+          role: user.role || 'user',
+          loginUrl: `${clientUrl}/login`,
+        },
+      })
+      .then(() => {
+        this.userModel
+          .updateOne({ _id: user._id }, { plainPassword: null })
+          .catch((err) =>
+            console.error('Failed to clear plain password after welcome:', err),
+          );
+      })
+      .catch((error) => {
+        console.error(
+          'Failed to send welcome email after verification:',
+          error,
+        );
+      });
+
+    return successResponse(
+      {
+        email: user.email,
+        username: user.username,
+      },
+      'Account has been activated successfully! You can now log in',
+      200,
+    );
   }
 }

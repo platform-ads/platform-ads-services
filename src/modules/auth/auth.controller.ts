@@ -7,6 +7,7 @@ import {
   Body,
   Res,
   Req,
+  Query,
 } from '@nestjs/common';
 import type { Request as ExpressRequest, Response } from 'express';
 import { AuthService } from './auth.service';
@@ -177,5 +178,13 @@ export class AuthController {
         500,
       );
     }
+  }
+
+  @Get('verify-email')
+  async verifyEmail(@Query('token') token: string) {
+    if (!token) {
+      return errorResponse('Token is not provided', 400);
+    }
+    return this.authService.verifyEmail(token);
   }
 }
