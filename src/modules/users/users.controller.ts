@@ -35,8 +35,8 @@ export class UsersController {
 
   @Get('profile')
   @Roles('admin', 'user')
-  getProfile() {
-    return this.usersService.getProfile();
+  getProfile(@Request() req: { user: { _id: string } }) {
+    return this.usersService.getProfile(String(req.user._id));
   }
 
   @Get(':id')

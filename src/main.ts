@@ -32,9 +32,9 @@ async function bootstrap() {
 
   // Enable CORS with credentials
   app.enableCors({
-    origin: configService.get<string>('CLIENT_URL') || 'http://localhost:3001',
+    origin: configService.get<string>('CLIENT_URL') || 'http://localhost:3000',
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 

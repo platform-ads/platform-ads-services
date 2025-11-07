@@ -9,9 +9,7 @@ import { Model } from 'mongoose';
 import { hashPasswordHelper } from '../../helpers/util';
 import { errorResponse, successResponse } from '../../helpers/response';
 import { ConfigService } from '@nestjs/config';
-import { MailService } from '../../lib/mail.service';
 import * as bcrypt from 'bcrypt';
-import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -20,7 +18,6 @@ export class AuthService {
     private jwtService: JwtService,
     @InjectModel(User.name) private userModel: Model<User>,
     private configService: ConfigService,
-    private mailService: MailService,
   ) {}
 
   private parseExpirationToSeconds(expiration: string): number {
@@ -83,149 +80,43 @@ export class AuthService {
   }
 
   async signUp(registerDto: CreateAuthDto) {
-    const { email, phoneNumber, role, keySecret } = registerDto;
+    const { email, phoneNumber, password, role, keySecret } = registerDto;
 
     // Check if email already exists
     const existingUserByEmail = await this.userModel.findOne({ email });
     if (existingUserByEmail) {
-      // If account exists but not verified
-      if (
-        !existingUserByEmail.isActive &&
-        existingUserByEmail.verificationToken
-      ) {
-        // Check if user is trying to register again within 120 seconds
-        const twoMinutesAgo = new Date(Date.now() - 120 * 1000);
-
-        if (
-          existingUserByEmail.lastVerificationEmailSent &&
-          existingUserByEmail.lastVerificationEmailSent > twoMinutesAgo
-        ) {
-          const timeLeftSeconds = Math.ceil(
-            (existingUserByEmail.lastVerificationEmailSent.getTime() +
-              120 * 1000 -
-              Date.now()) /
-              1000,
-          );
-          return errorResponse(
-            `Please wait ${timeLeftSeconds} seconds before requesting another verification email. Check your inbox (including spam folder) for the previous verification email.`,
-            429,
-          );
-        }
-
-        // If 120 seconds have passed, allow resending verification email
-        await this.userModel.updateOne(
-          { _id: existingUserByEmail._id },
-          {
-            lastVerificationEmailSent: new Date(),
-          },
-        );
-
-        // Resend verification email with existing data
-        const clientUrl =
-          this.configService.get<string>('CLIENT_URL') ||
-          'http://localhost:3000';
-        const verificationUrl = `${clientUrl}/auth/verify-email?token=${existingUserByEmail.verificationToken}`;
-
-        await this.mailService.sendEmail({
-          to: email,
-          subject: 'Verify Your Platform Ads Account ',
-          template: 'verify-email',
-          context: {
-            username: existingUserByEmail.username,
-            email: existingUserByEmail.email,
-            role: existingUserByEmail.role || 'user',
-            verificationUrl,
-            expirationTime: '1 hour',
-            generatePassword: existingUserByEmail.plainPassword || '********',
-          },
-        });
-
-        return successResponse(
-          {
-            email: existingUserByEmail.email,
-            message:
-              'A verification email has been resent. Please check your inbox.',
-          },
-          'Verification email resent successfully',
-          200,
-        );
-      } else {
-        // Account already exists and is active
-        return errorResponse(
-          'This email is already registered. Please use a different email or login to your existing account.',
-          400,
-        );
-      }
+      return errorResponse(
+        'This email is already registered. Please use a different email or login to your existing account.',
+        400,
+      );
     }
 
     // Check if phone number already exists
     const existingUserByPhone = await this.userModel.findOne({ phoneNumber });
     if (existingUserByPhone) {
-      // If account exists but not verified, delete it and allow re-registration
-      if (
-        !existingUserByPhone.isActive &&
-        existingUserByPhone.verificationToken
-      ) {
-        // If this is a different user (different email), just delete the old phone record
-        if (existingUserByPhone.email !== email) {
-          await this.userModel.deleteOne({ _id: existingUserByPhone._id });
-        }
-        // If same user, already handled above in email check
-      } else {
-        // Account already exists and is active
-        return errorResponse(
-          'This phone number is already registered. Please use a different phone number or login to your existing account.',
-          400,
-        );
-      }
+      return errorResponse(
+        'This phone number is already registered. Please use a different phone number or login to your existing account.',
+        400,
+      );
     }
 
     const username = email.split('@')[0];
-
-    const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-
-    const generateRandomPassword = () => {
-      const length = 12;
-      const chars =
-        'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@$!%*?&';
-      let newPassword = '';
-      do {
-        newPassword = Array.from(
-          { length },
-          () => chars[Math.floor(Math.random() * chars.length)],
-        ).join('');
-      } while (!passwordRegex.test(newPassword));
-      return newPassword;
-    };
-
-    const generatePassword = generateRandomPassword();
-
-    const hashPassword = await hashPasswordHelper(generatePassword);
+    const hashPassword = await hashPasswordHelper(password);
 
     const avatarUrl = `https://ui-avatars.com/api/?name=${username}&background=random&size=128`;
     const avatarLink = '';
     const points = role === 'admin' ? 999999999 : 0;
-    const isActiveUser = role === 'admin' ? true : false;
 
     if (role === 'admin') {
-      if (keySecret !== process.env.ADMIN_KEY_SECRET) {
+      if (
+        keySecret !== this.configService.get<string>('ADMIN_REGISTRATION_KEY')
+      ) {
         return errorResponse('Invalid key secret for admin registration', 403);
       }
     }
 
-    // Generate verification token for regular users (not admin)
-    let verificationToken: string | null = null;
-    let verificationExpiration: Date | null = null;
-
-    if (role !== 'admin') {
-      verificationToken = crypto.randomBytes(32).toString('hex');
-      // Token expires after 1 hour
-      verificationExpiration = new Date(Date.now() + 60 * 60 * 1000);
-    }
-
     const user = await this.userModel.create({
-      isActive: isActiveUser,
+      isActive: true, // All users are active by default
       role: role || 'user',
       username,
       email,
@@ -234,59 +125,7 @@ export class AuthService {
       avatarUrl,
       avatarLink,
       points,
-      verificationToken,
-      verificationExpiration,
-      plainPassword: generatePassword,
-      lastVerificationEmailSent: role === 'admin' ? null : new Date(),
     });
-
-    const clientUrl =
-      this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
-
-    // Send welcome email for admin
-    if (role === 'admin') {
-      // send welcome email to admin and clear plain password afterwards
-      await this.mailService.sendEmail({
-        to: email,
-        subject: 'Welcome Admin to Platform Ads! 🎉',
-        template: 'welcome',
-        context: {
-          username,
-          email,
-          phoneNumber,
-          generatePassword,
-          role: role || 'user',
-          loginUrl: `${clientUrl}/login`,
-        },
-      });
-
-      // Clear plain password after a short delay
-      setTimeout(() => {
-        this.userModel
-          .updateOne({ _id: user._id }, { plainPassword: null })
-          .catch((err) =>
-            console.error('Failed to clear plain password for admin:', err),
-          );
-      }, 1000);
-
-      // Send verification email for regular users
-    } else {
-      const verificationUrl = `${clientUrl}/auth/verify-email?token=${verificationToken}`;
-
-      await this.mailService.sendEmail({
-        to: email,
-        subject: 'Verify Your Platform Ads Account ',
-        template: 'verify-email',
-        context: {
-          username,
-          email,
-          role: role || 'user',
-          verificationUrl,
-          expirationTime: '1 hour',
-          generatePassword, // Send password in verification email
-        },
-      });
-    }
 
     const response = {
       userId: user._id,
@@ -296,9 +135,10 @@ export class AuthService {
       avatarLink: user.avatarLink,
       points: user.points,
       isActive: user.isActive,
-      message: isActiveUser
-        ? 'Admin account has been created and activated successfully. Please check your email for the password.'
-        : 'Registration successful! Please check your email to verify your account.',
+      message:
+        role === 'admin'
+          ? 'Admin account has been created and activated successfully.'
+          : 'Registration successful! You can now login.',
     };
 
     return successResponse(response, 'User registered successfully', 201);
@@ -374,82 +214,8 @@ export class AuthService {
     }
   }
 
-  async verifyEmail(token: string) {
-    const user = await this.userModel.findOne({
-      verificationToken: token,
-    });
-
-    if (!user) {
-      return errorResponse(
-        'Verification token is invalid or has already been used',
-        400,
-      );
-    }
-
-    // Check if token has expired - if yes, delete the account
-    if (
-      user.verificationExpiration &&
-      user.verificationExpiration < new Date()
-    ) {
-      // Delete the expired unverified account
-      await this.userModel.deleteOne({ _id: user._id });
-
-      return errorResponse(
-        'Verification token has expired and the account has been deleted. Please register again',
-        400,
-      );
-    }
-
-    // Check if account is already active
-    if (user.isActive) {
-      return errorResponse('This account has already been activated', 400);
-    }
-
-    // Activate the account
-    await this.userModel.updateOne(
-      { _id: user._id },
-      {
-        isActive: true,
-        verificationToken: null,
-        verificationExpiration: null,
-      },
-    );
-
-    // Send welcome email after successful verification
-    const clientUrl =
-      this.configService.get<string>('CLIENT_URL') || 'http://localhost:3000';
-
-    // send welcome email and include the plain password that was stored at registration
-    await this.mailService.sendEmail({
-      to: user.email,
-      subject: 'Welcome to Platform Ads! 🎉',
-      template: 'welcome',
-      context: {
-        username: user.username,
-        email: user.email,
-        phoneNumber: user.phoneNumber,
-        generatePassword: user.plainPassword || '********',
-        role: user.role || 'user',
-        loginUrl: `${clientUrl}/login`,
-      },
-    });
-
-    // Clear plain password after a short delay
-    setTimeout(() => {
-      this.userModel
-        .updateOne({ _id: user._id }, { plainPassword: null })
-        .catch((err) =>
-          console.error('Failed to clear plain password after welcome:', err),
-        );
-    }, 1000);
-
-    return successResponse(
-      {
-        email: user.email,
-        username: user.username,
-      },
-      'Account has been activated successfully! You can now log in',
-      200,
-    );
+  verifyEmail(_token: string) {
+    // Email verification is no longer used
+    return errorResponse('Email verification is not available', 400);
   }
 }

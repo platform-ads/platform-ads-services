@@ -26,13 +26,6 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Password is required');
     }
 
-    // Check if account is activated
-    if (!user.isActive) {
-      throw new UnauthorizedException(
-        'Account has not been activated. Please check your email to verify your account.',
-      );
-    }
-
     return user;
   }
 }

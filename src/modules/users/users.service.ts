@@ -125,8 +125,10 @@ export class UsersService {
     return successResponse(user, 'User created successfully', 201);
   }
 
-  async getProfile() {
-    const user = await this.userModel.findOne().select('-password');
+  async getProfile(userId: string) {
+    const user = await this.userModel
+      .findById(userId)
+      .select('-password -refreshToken');
 
     if (!user) {
       return errorResponse('User not found', 404);
@@ -147,7 +149,7 @@ export class UsersService {
       .find()
       .skip(skip)
       .limit(pageSizeNum)
-      .select('-password');
+      .select('-password -refreshToken');
 
     return paginatedResponse(
       results,

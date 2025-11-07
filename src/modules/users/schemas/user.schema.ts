@@ -39,25 +39,7 @@ export class User {
   lastLogoutAt: Date;
 
   @Prop()
-  codeId: string;
-
-  @Prop()
-  codeExpiration: Date;
-
-  @Prop()
   refreshToken: string;
-
-  @Prop()
-  verificationToken: string;
-
-  @Prop()
-  verificationExpiration: Date;
-
-  @Prop()
-  lastVerificationEmailSent: Date;
-
-  @Prop()
-  plainPassword: string;
 
   @Prop({ default: Date.now })
   createdAt?: Date;
