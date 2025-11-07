@@ -73,14 +73,16 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
                 // Set new tokens in cookies
                 response.cookie('access_token', access_token, {
                   httpOnly: true,
-                  secure: process.env.NODE_ENV === 'production',
+                  secure:
+                    this.configService.get<string>('NODE_ENV') === 'production',
                   sameSite: 'lax',
                   maxAge: accessTokenMaxAge,
                 });
 
                 response.cookie('refresh_token', refresh_token, {
                   httpOnly: true,
-                  secure: process.env.NODE_ENV === 'production',
+                  secure:
+                    this.configService.get<string>('NODE_ENV') === 'production',
                   sameSite: 'lax',
                   maxAge: refreshTokenMaxAge,
                 });

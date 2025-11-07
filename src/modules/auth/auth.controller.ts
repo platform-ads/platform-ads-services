@@ -45,14 +45,14 @@ export class AuthController {
     if (result.data?.access_token && result.data?.refresh_token) {
       res.cookie('access_token', result.data.access_token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: this.configService.get<string>('NODE_ENV') === 'production',
         sameSite: 'lax',
         maxAge: accessTokenMaxAge,
       });
 
       res.cookie('refresh_token', result.data.refresh_token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: this.configService.get<string>('NODE_ENV') === 'production',
         sameSite: 'lax',
         maxAge: refreshTokenMaxAge,
       });
@@ -85,13 +85,13 @@ export class AuthController {
     // Clear both access token and refresh token cookies
     res.clearCookie('access_token', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: this.configService.get<string>('NODE_ENV') === 'production',
       sameSite: 'lax',
     });
 
     res.clearCookie('refresh_token', {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: this.configService.get<string>('NODE_ENV') === 'production',
       sameSite: 'lax',
     });
 
