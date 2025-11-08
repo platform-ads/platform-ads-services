@@ -5,13 +5,13 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { GlobalExceptionFilter } from './filters/http-exception.filter';
 import { TransformResponseInterceptor } from './interceptors/transform-response.interceptor';
-import cookieParser from 'cookie-parser';
+import * as cookieParser from 'cookie-parser';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Cookie Parser Middleware
-  app.use(cookieParser());
+  app.use(cookieParser.default());
 
   // Global Exception Filter
   app.useGlobalFilters(new GlobalExceptionFilter());
