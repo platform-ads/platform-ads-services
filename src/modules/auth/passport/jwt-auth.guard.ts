@@ -7,15 +7,21 @@ import { Reflector } from '@nestjs/core';
 import { AuthGuard } from '@nestjs/passport';
 import { ROLES_KEY } from '../../../decorators/metadata';
 import { AuthService } from '../auth.service';
-import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
+import { UsersService } from '../../users/users.service';
+import { JwtService } from '@nestjs/jwt';
+
+interface RequestWithUser extends Request {
+  user?: any;
+}
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
   constructor(
     private readonly reflector: Reflector,
     private readonly authService: AuthService,
+    private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {
@@ -34,17 +40,100 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       return true;
     }
 
-    const request = context.switchToHttp().getRequest<Request>();
+    const request = context.switchToHttp().getRequest<RequestWithUser>();
     const response = context.switchToHttp().getResponse<Response>();
     const accessToken = request.cookies?.access_token as string | undefined;
     const refreshToken = request.cookies?.refresh_token as string | undefined;
 
+    // Nếu KHÔNG có access token NHƯNG có refresh token → thử refresh ngay
+    if (!accessToken && refreshToken) {
+      try {
+        const result = await this.authService.refreshTokens(refreshToken);
+
+        if ('data' in result && result.data) {
+          const { access_token, refresh_token } = result.data;
+
+          const accessTokenMaxAge =
+            this.configService.get<number>('ACCESS_TOKEN_COOKIE_MAX_AGE') ||
+            15 * 60 * 1000;
+          const refreshTokenMaxAge =
+            this.configService.get<number>('REFRESH_TOKEN_COOKIE_MAX_AGE') ||
+            7 * 24 * 60 * 60 * 1000;
+
+          response.cookie('access_token', access_token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'none',
+            maxAge: accessTokenMaxAge,
+            path: '/',
+          });
+
+          response.cookie('refresh_token', refresh_token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'none',
+            maxAge: refreshTokenMaxAge,
+            path: '/',
+          });
+
+          // Verify new access token và load user
+          const jwtSecret =
+            this.configService.get<string>('JWT_SECRET') || 'default-secret';
+          const payload = await this.jwtService.verifyAsync<{
+            sub: string;
+            email: string;
+          }>(access_token, {
+            secret: jwtSecret,
+          });
+
+          const user = await this.usersService.findByEmail(payload.email);
+          if (!user) {
+            throw new UnauthorizedException('User not found');
+          }
+
+          const {
+            password: _pwd,
+            refreshToken: _rt,
+            ...userWithoutSensitive
+          } = user.toObject();
+          request.user = userWithoutSensitive;
+
+          return true;
+        }
+
+        throw new UnauthorizedException('Failed to refresh token');
+      } catch {
+        throw new UnauthorizedException('Session expired. Please login again.');
+      }
+    }
+
     // Nếu có access token, thử validate
     if (accessToken) {
       try {
-        // Gọi super để validate access token
-        const result = await super.canActivate(context);
-        return result as boolean;
+        // Verify access token
+        const jwtSecret =
+          this.configService.get<string>('JWT_SECRET') || 'default-secret';
+        const payload = await this.jwtService.verifyAsync<{
+          sub: string;
+          email: string;
+        }>(accessToken, {
+          secret: jwtSecret,
+        });
+
+        // Load user và attach vào request
+        const user = await this.usersService.findByEmail(payload.email);
+        if (!user) {
+          throw new UnauthorizedException('User not found');
+        }
+
+        const {
+          password: _pwd,
+          refreshToken: _rt,
+          ...userWithoutSensitive
+        } = user.toObject();
+        request.user = userWithoutSensitive;
+
+        return true;
       } catch (error: unknown) {
         // Nếu access token hết hạn và có refresh token
         const err = error as { name?: string; message?: string };
@@ -73,37 +162,61 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
                 // Set new tokens in cookies
                 response.cookie('access_token', access_token, {
                   httpOnly: true,
-                  secure:
-                    this.configService.get<string>('NODE_ENV') === 'production',
-                  sameSite: 'lax',
+                  secure: true,
+                  sameSite: 'none',
                   maxAge: accessTokenMaxAge,
+                  path: '/',
                 });
 
                 response.cookie('refresh_token', refresh_token, {
                   httpOnly: true,
-                  secure:
-                    this.configService.get<string>('NODE_ENV') === 'production',
-                  sameSite: 'lax',
+                  secure: true,
+                  sameSite: 'none',
                   maxAge: refreshTokenMaxAge,
+                  path: '/',
                 });
 
-                // Update request with new access token
-                if (request.cookies) {
-                  request.cookies.access_token = access_token;
+                // Verify new access token và load user
+                const jwtSecret =
+                  this.configService.get<string>('JWT_SECRET') ||
+                  'default-secret';
+                const payload = await this.jwtService.verifyAsync<{
+                  sub: string;
+                  email: string;
+                }>(access_token, {
+                  secret: jwtSecret,
+                });
+
+                const user = await this.usersService.findByEmail(payload.email);
+                if (!user) {
+                  throw new UnauthorizedException('User not found');
                 }
 
-                // Validate again with new token
-                const validateResult = await super.canActivate(context);
-                return validateResult as boolean;
+                const {
+                  password: _pwd,
+                  refreshToken: _rt,
+                  ...userWithoutSensitive
+                } = user.toObject();
+                request.user = userWithoutSensitive;
+
+                return true;
               }
+
+              throw new UnauthorizedException('Failed to refresh token');
             } catch {
               throw new UnauthorizedException(
                 'Session expired. Please login again.',
               );
             }
           }
+
+          throw new UnauthorizedException(
+            'Access token expired and no refresh token available.',
+          );
         }
-        throw error;
+
+        // Other JWT errors
+        throw new UnauthorizedException('Invalid access token');
       }
     }
 
@@ -113,23 +226,7 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     );
   }
 
-  handleRequest(err: any, user: any, info: any): any {
-    // Xử lý các lỗi JWT cụ thể
-    if (info && typeof info === 'object' && 'name' in info) {
-      const errorName = (info as { name: string }).name;
-      if (errorName === 'TokenExpiredError') {
-        throw new UnauthorizedException(
-          'Access token has expired. Please login again.',
-        );
-      }
-      if (errorName === 'JsonWebTokenError') {
-        throw new UnauthorizedException('Invalid access token.');
-      }
-      if (errorName === 'NotBeforeError') {
-        throw new UnauthorizedException('Access token is not yet valid.');
-      }
-    }
-
+  handleRequest(err: any, user: any): any {
     if (err) {
       throw err;
     }

@@ -34,27 +34,29 @@ export class AuthController {
     const result = await this.authService.signIn(req.user);
 
     // Get cookie maxAge from environment variables
-    const accessTokenMaxAge =
-      this.configService.get<number>('ACCESS_TOKEN_COOKIE_MAX_AGE') ||
-      15 * 60 * 1000; // Default: 15 minutes
-    const refreshTokenMaxAge =
-      this.configService.get<number>('REFRESH_TOKEN_COOKIE_MAX_AGE') ||
-      7 * 24 * 60 * 60 * 1000; // Default: 7 days
+    const accessTokenMaxAge = this.configService.get<number>(
+      'ACCESS_TOKEN_COOKIE_MAX_AGE',
+    );
+    const refreshTokenMaxAge = this.configService.get<number>(
+      'REFRESH_TOKEN_COOKIE_MAX_AGE',
+    );
 
     // Set both access token and refresh token in HTTP-only cookies
     if (result.data?.access_token && result.data?.refresh_token) {
       res.cookie('access_token', result.data.access_token, {
         httpOnly: true,
-        secure: this.configService.get<string>('NODE_ENV') === 'production',
-        sameSite: 'lax',
+        secure: true,
+        sameSite: 'none',
         maxAge: accessTokenMaxAge,
+        path: '/',
       });
 
       res.cookie('refresh_token', result.data.refresh_token, {
         httpOnly: true,
-        secure: this.configService.get<string>('NODE_ENV') === 'production',
-        sameSite: 'lax',
+        secure: true,
+        sameSite: 'none',
         maxAge: refreshTokenMaxAge,
+        path: '/',
       });
 
       // Remove tokens from response body for security
@@ -85,14 +87,16 @@ export class AuthController {
     // Clear both access token and refresh token cookies
     res.clearCookie('access_token', {
       httpOnly: true,
-      secure: this.configService.get<string>('NODE_ENV') === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
+      path: '/',
     });
 
     res.clearCookie('refresh_token', {
       httpOnly: true,
-      secure: this.configService.get<string>('NODE_ENV') === 'production',
-      sameSite: 'lax',
+      secure: true,
+      sameSite: 'none',
+      path: '/',
     });
 
     return result;
