@@ -1,20 +1,12 @@
 # Stage 1: Build
-FROM ubuntu:24.04 AS builder
+FROM node:20-alpine3.19 AS builder
 
 # Cài đặt dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    gnupg \
-    ca-certificates \
+RUN apk add --no-cache \
     git \
-    build-essential \
     python3 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Cài đặt Node.js (phiên bản LTS mới nhất)
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs && \
-    rm -rf /var/lib/apt/lists/*
+    make \
+    g++
 
 WORKDIR /app
 
@@ -31,21 +23,14 @@ COPY . .
 RUN npm run build
 
 # Stage 2: Runtime
-FROM ubuntu:24.04
+FROM node:20-alpine3.19
 
 # Cài đặt dependencies runtime
-RUN apt-get update && apt-get install -y \
-    curl \
-    ca-certificates \
+RUN apk add --no-cache \
     nginx \
     supervisor \
-    bc \
-    && rm -rf /var/lib/apt/lists/*
-
-# Cài đặt Node.js runtime
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs && \
-    rm -rf /var/lib/apt/lists/*
+    curl \
+    bc
 
 WORKDIR /app
 
