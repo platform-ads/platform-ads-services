@@ -61,5 +61,4 @@ tests/
 # Misc
 .eslintrc.js
 .prettierrc
-tsconfig.json
 jest.config.js
