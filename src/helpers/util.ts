@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import * as bcrypt from 'bcrypt';
 const saltRounds = 10;
 
 export const hashPasswordHelper = async (plainPassword: string) => {
