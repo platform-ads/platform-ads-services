@@ -47,7 +47,9 @@ COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
-RUN chmod +x /app/docker-entrypoint.sh
+# Ensure correct line endings and executable permission
+RUN dos2unix /app/docker-entrypoint.sh || sed -i 's/\r$//' /app/docker-entrypoint.sh && \
+    chmod +x /app/docker-entrypoint.sh
 
 # Expose ports
 EXPOSE 3000 80
