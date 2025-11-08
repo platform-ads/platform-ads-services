@@ -22,7 +22,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Cài đặt dependencies
-RUN npm ci
+RUN npm install
 
 # Copy source code
 COPY . .
@@ -59,6 +59,10 @@ COPY nginx.conf /etc/nginx/nginx.conf
 # Copy supervisor config
 COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
+# Copy entrypoint script
+COPY docker-entrypoint.sh /app/docker-entrypoint.sh
+RUN chmod +x /app/docker-entrypoint.sh
+
 # Expose ports
 EXPOSE 3000 80
 
@@ -66,5 +70,5 @@ EXPOSE 3000 80
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
     CMD curl -f http://localhost/health || exit 1
 
-# Start supervisor (quản lý Nginx và Node.js app)
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
+# Start with entrypoint script (log system info + start supervisor)
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
