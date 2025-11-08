@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: platform-ads-services
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: standard
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # - key: DATABASE_URL
+      #   sync: false
+      # - key: JWT_SECRET
+      #   sync: false
+    healthCheckPath: /health
+    healthCheckInterval: 30
+    headers:
+      - name: X-Robots-Tag
+        value: noindex
